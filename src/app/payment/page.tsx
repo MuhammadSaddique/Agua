@@ -22,25 +22,48 @@ const Payment = () => {
   const [usdtToPolygon, setUsdtToPolygon] = useState<number | null>(null);
   const [usdtToEthereum, setUsdtToEthereum] = useState<number | null>(null);
 
+  const [usdtAmount, setUsdtAmount] = useState<number>(0); // Value entered in USD
+  const [btcRate, setBtcRate] = useState<number>(0); // BTC to USD rate
+  const [ethRate, setEthRate] = useState<number>(0); // ETH to USD rate
+  const [maticRate, setMaticRate] = useState<number>(0); // MATIC to USD rate
+
+  // Fetch the exchange rates when the component mounts
   useEffect(() => {
-    // Fetch Bitcoin Price
-    const fetchBitcoinPrice = async () => {
+    const fetchExchangeRates = async () => {
       try {
-        const response = await axios.get(
-          "https://api.coinlayer.com/live?access_key=374fbb63dfff515ce8c6c1001f17e1d3",
-        );
-        console.log("checking:", response.data.rates.BTC);
-        let num: number = 1 / response.data.rates.BTC;
-        setBitcoinPrice(num);
-        console.log("checking: 2", num);
+        const response = await axios.get('http://api.coinlayer.com/live', {
+          params: {
+            access_key: 'e229d2ea5f8c7ed68f40f080a9d5f8d6', // Replace with your access key
+          },
+        });
+
+        // Extract exchange rates for Bitcoin, Ethereum, and Polygon from the response
+        const rates = response.data.rates;
+        setBtcRate(rates.BTC);
+        setEthRate(rates.ETH);
+        setMaticRate(rates.MATIC);
       } catch (error) {
-        console.error("Error fetching Bitcoin price:", error);
+        console.error('Error fetching exchange rates:', error);
       }
     };
 
-    // Call the function to fetch Bitcoin price when the component mounts
-    fetchBitcoinPrice();
+    fetchExchangeRates();
   }, []);
+
+  // Calculate the cryptocurrency amounts based on the entered USDT value
+  const calculateCryptoAmount = (usdt: number, rate: number) => {
+    return (usdt / rate).toFixed(6); // Convert USD to crypto with 6 decimal precision
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setUsdtAmount(Number(e.target.value));
+  };
+
+
+
+
+
+ 
 
   const handleCardSelection = async (type: string) => {
     setSelectedPayment(type);
@@ -68,17 +91,7 @@ const Payment = () => {
     setShowCryptoOptions(false);
   };
 
-  // const handleCryptoSelection = (crypto: string) => {
-  //   setSelectedCrypto(crypto);
-  //   setShowUSDTCard(false); // Reset USDT details when switching to a different crypto
-  //   setShowCryptoPaymentCard(true); // Show card for Bitcoin and Polygon
-  //   setSelectedCard(null); // Reset selected card when switching cryptos
-  // };
-
-  // const handleCryptoSelection = (crypto: string) => {
-  //   setSelectedCrypto(crypto);
-  //   setShowCryptoPaymentCard(true); // Always show the consolidated card
-  // };
+  
 
   const handleCryptoSelection = (crypto: string) => {
     setSelectedCrypto(crypto);
@@ -97,16 +110,7 @@ const Payment = () => {
     }
   };
 
-  // const handleCardClick = (cardType: string) => {
-  //   setSelectedCard(cardType);
-  //   if (cardType === 'USDT') {
-  //     setShowUSDTCard(true);
-  //     setPrice('1000'); // Set USDT price to 1000
-  //   } else {
-  //     setShowUSDTCard(false);
-  //   }
-  // };
-
+ 
   return (
     <DefaultLayout>
       <div className="mx-auto max-w-7xl p-8">
@@ -300,44 +304,9 @@ const Payment = () => {
               </div>
             )}
 
-            {/* Ethereum and USDT Cards */}
-            {/* {selectedCrypto === 'Ethereum' && (
-              <div className="flex flex-wrap justify-center gap-20 mt-8">
-                <div
-                  onClick={() => handleCardClick('Ethereum')}
-                  className={`w-52 mt-10 p-8 border border-gray-300 rounded-lg text-center shadow-md cursor-pointer ${
-                    selectedCard === 'Ethereum' ? 'bg-white' : 'bg-gray-300'
-                  }`}
-                >
-                  <div className="w-16 h-16 mx-auto mb-4">
-                    <img
-                      src="/images/logo/Ether.png"
-                      alt="Ethers Logo"
-                      className="w-full h-full object-cover rounded-full"
-                    />
-                  </div>
-                  <div className="text-lg font-semibold text-black">Ethers</div>
-                </div>
-
-                <div
-                  onClick={() => handleCardClick('USDT')}
-                  className={`w-52 mt-10 p-8 border border-gray-300 rounded-lg text-center shadow-md cursor-pointer ${
-                    selectedCard === 'USDT' ? 'bg-white' : 'bg-gray-300'
-                  }`}
-                >
-                  <div className="w-16 h-16 mx-auto mb-4">
-                    <img
-                      src="/images/logo/ustd.png"
-                      alt="USDT Logo"
-                      className="w-full h-full object-cover rounded-full"
-                    />
-                  </div>
-                  <div className="text-lg font-semibold text-black">USDT</div>
-                </div>
-              </div>
-            )} */}
 
             {selectedCrypto === "Ethereum" && (
+                
               <div className="mt-8 flex flex-wrap justify-center gap-20">
                 <div
                   onClick={() => handleCardClick("Ethereum")}
@@ -417,61 +386,6 @@ const Payment = () => {
                 </div>
               </div>
             )}
-
-            {/* showing of Bitcoin Card Details */}
-            {/* {showCryptoPaymentCard && selectedCrypto && (
-              <div className="w-180 p-8 bg-gray-900 rounded-lg text-center shadow-md mt-12">
-                <h2 className="text-lg font-semibold text-white">{selectedCrypto} Payment</h2>
-                <p className="mt-4 text-white">Send the required amount of {selectedCrypto}:</p>
-                <div className="flex flex-col items-center mt-4">
-                  <input
-                    type="number"
-                    placeholder={`Enter ${selectedCrypto} Amount`}
-                    className="w-64 px-3 py-3 bg-white text-black rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    onChange={(e) => setCryptoAmount(e.target.value)}
-                  />
-                  <button
-                    onClick={() => console.log(`Proceeding with ${selectedCrypto} payment of amount: ${cryptoAmount}`)}
-                    className="mt-4 px-8 py-2 bg-red-700 text-white rounded-lg hover:bg-blue-500 transition duration-300"
-                  >
-                    Buy Now
-                  </button>
-                </div>
-              </div>
-            )} */}
-
-            {/* Crypto Payment Card */}
-            {/* {showCryptoPaymentCard && selectedCrypto && (
-  <div className="w-180 p-8 bg-gray-900 rounded-lg text-center shadow-md mt-12">
-    <h2 className="text-lg font-semibold text-white">{selectedCrypto} Payment</h2>
-    <p className="mt-4 text-white">
-      Send the required amount of {selectedCrypto} to the wallet address:
-    </p>
-    <div className="text-sm text-gray-400 mt-2">
-      {selectedCrypto === "USDT" && "Wallet Address: 0xUSDT...abcd"}
-      {selectedCrypto === "Bitcoin" && "Wallet Address: 0xBTC...abcd"}
-      {selectedCrypto === "Polygon" && "Wallet Address: 0xPOLY...abcd"}
-    </div>
-
-    <div className="flex flex-col items-center mt-4">
-    
-      <input
-        type="number"
-        placeholder={`Enter ${selectedCrypto} Amount`}
-        value={cryptoAmount}
-        onChange={(e) => setCryptoAmount(e.target.value)}
-        className="w-64 px-3 py-3 bg-white text-black rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-      />
-
-      <button
-        onClick={() => console.log(`Proceeding with ${selectedCrypto} payment of amount: ${cryptoAmount}`)}
-        className="mt-4 px-8 py-2 bg-red-700 text-white rounded-lg hover:bg-blue-500 transition duration-300"
-      >
-        Buy Now
-      </button>
-    </div>
-  </div>
-)} */}
 
             {/* Crypto Payment Card */}
             {showCryptoPaymentCard && selectedCrypto && (
@@ -564,11 +478,7 @@ const Payment = () => {
                     className="w-64 rounded-lg border border-gray-300 bg-white px-3 py-3 text-black focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <button
-                    // onClick={() =>
-                    //   console.log(
-                    //     `Proceeding with ${selectedCrypto} payment of amount: ${cryptoAmount}`,
-                    //   )
-                    // }
+                    
                     className="mt-4 rounded-lg bg-red-700 px-8 py-2 text-white transition duration-300 hover:bg-blue-500"
                   >
                     Buy Now
