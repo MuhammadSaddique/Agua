@@ -550,12 +550,12 @@ const Payment = () => {
                     // value={changeInPrice !== null ? changeInPrice : ""}
                     onChange={async (e) => {
                       console.log("change in Pirce", bitcoinPrice);
-                      const response = await axios.get(
-                        "https://api.coinlayer.com/live?access_key=374fbb63dfff515ce8c6c1001f17e1d3",
-                      );
-                      let price: number = 1 / response.data.rates.BTC;
-                      let change: number = price * Number(e.target.value);
-                      SetChangeInPrice(change);
+                      // const response = await axios.get(
+                      //   "https://api.coinlayer.com/live?access_key=374fbb63dfff515ce8c6c1001f17e1d3",
+                      // );
+                      // let price: number = 1 / response.data.rates.BTC;
+                      // let change: number = price * Number(e.target.value);
+                      // SetChangeInPrice(change);
                       // console.log("USDT Value:", response.data.rates.BTC);
                       console.log("change in Pirce", changeInPrice);
                     }}

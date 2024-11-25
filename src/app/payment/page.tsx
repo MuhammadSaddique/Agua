@@ -2,96 +2,174 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import DefaultLayout from "@/components/Layouts/DefaultLayout";
+import Moralis from "moralis";
 
 const Payment = () => {
   const [selectedPayment, setSelectedPayment] = useState<string | null>(null);
+
   const [showCryptoOptions, setShowCryptoOptions] = useState(false);
   const [selectedToken, setSelectedToken] = useState<string | null>(null);
-  const [selectedCrypto, setSelectedCrypto] = useState<string | null>(null);
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
   const [changeInPrice, SetChangeInPrice] = useState<number | null>(0);
-  // New state for selected card (Ethereum or USDT)
   const [showUSDTCard, setShowUSDTCard] = useState(false);
-  const [showCryptoPaymentCard, setShowCryptoPaymentCard] = useState(false); // For Bitcoin and Polygon
-  const [cryptoAmount, setCryptoAmount] = useState<string>("");
+  const [showCryptoPaymentCard, setShowCryptoPaymentCard] = useState(false); 
   const [price, setPrice] = useState<string | null>(null);
   const [bitcoinPrice, setBitcoinPrice] = useState<number | number>();
-  const [polygonPrice, setPolygonPrice] = useState<number | null>(null);
-  const [ethereumPrice, setEthereumPrice] = useState<number | null>(null);
-  const [usdtToBitcoin, setUsdtToBitcoin] = useState<number | null>(null);
-  const [usdtToPolygon, setUsdtToPolygon] = useState<number | null>(null);
-  const [usdtToEthereum, setUsdtToEthereum] = useState<number | null>(null);
+  const [usdtAmount, setUsdtAmount] = useState<number>(0); // Value in USD
+  const [btcRate, setBtcRate] = useState<number | null>(null); // BTC rate
+  const [ethRate, setEthRate] = useState<number | null>(null); // ETH rate
+  const [maticRate, setMaticRate] = useState<number | null>(null); // MATIC rate
+  const [goldRate, setGoldRate] = useState<number | null>(null); // Gold rate (XAU)
+  const [silverRate, setSilverRate] = useState<number | null>(null); // Silver rate (XAG)
+  const [selectedCrypto, setSelectedCrypto] = useState<string>("Bitcoin"); // Default selected crypto
+  const [tokens, setTokens] = useState<string>("0"); // Token amount
 
-  const [usdtAmount, setUsdtAmount] = useState<number>(0); // Value entered in USD
-  const [btcRate, setBtcRate] = useState<number>(0); // BTC to USD rate
-  const [ethRate, setEthRate] = useState<number>(0); // ETH to USD rate
-  const [maticRate, setMaticRate] = useState<number>(0); // MATIC to USD rate
+  const API_KEY =
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6ImJiNDZjNGIxLWQxMGEtNDc2Ni05NGZjLTNmZTA0ZjI4MDViOCIsIm9yZ0lkIjoiNDE3MzE2IiwidXNlcklkIjoiNDI5MDQ5IiwidHlwZUlkIjoiYWU4NTg2OTQtOTlmNy00ZDI3LThmYmYtOGRmNmIxOGVhYzJhIiwidHlwZSI6IlBST0pFQ1QiLCJpYXQiOjE3MzIyOTI1NzQsImV4cCI6NDg4ODA1MjU3NH0.n5cen_zNhhWRHDbTbdEbaqtdAHQJJ37xzN2axVjlbxs";
+  const GOLD_API_KEY = "goldapi-15hojrsm3uczxap-io"; // GoldAPI key
 
-  // Fetch the exchange rates when the component mounts
   useEffect(() => {
     const fetchExchangeRates = async () => {
       try {
-        const response = await axios.get('http://api.coinlayer.com/live', {
-          params: {
-            access_key: 'e229d2ea5f8c7ed68f40f080a9d5f8d6', // Replace with your access key
-          },
-        });
+        await Moralis.start({ apiKey: API_KEY });
 
-        // Extract exchange rates for Bitcoin, Ethereum, and Polygon from the response
-        const rates = response.data.rates;
-        setBtcRate(rates.BTC);
-        setEthRate(rates.ETH);
-        setMaticRate(rates.MATIC);
+        // Fetch Bitcoin (BTC) price
+        const btcResponse = await Moralis.EvmApi.token.getTokenPrice({
+          chain: "0x1",
+          address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+        });
+        const btcPrice = btcResponse.raw.usdPrice;
+        console.log("BTC Price:", btcPrice); // Log BTC price
+        setBtcRate(btcPrice);
+
+        // Fetch Ethereum (ETH) price
+        const ethResponse = await Moralis.EvmApi.token.getTokenPrice({
+          chain: "0x1",
+          address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", 
+        });
+        const ethPrice = ethResponse.raw.usdPrice;
+        console.log("ETH Price:", ethPrice); // Log ETH price
+        setEthRate(ethPrice);
+
+        // Fetch Polygon (MATIC) price
+        const maticResponse = await Moralis.EvmApi.token.getTokenPrice({
+          address: "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063", 
+          chain: "0x89", 
+        });
+        const maticPrice = maticResponse.raw.usdPrice;
+        console.log("MATIC Price:", maticPrice); // Log MATIC price
+        setMaticRate(maticPrice);
       } catch (error) {
-        console.error('Error fetching exchange rates:', error);
+        console.error("Error fetching data:", error);
       }
     };
 
     fetchExchangeRates();
   }, []);
 
-  // Calculate the cryptocurrency amounts based on the entered USDT value
-  const calculateCryptoAmount = (usdt: number, rate: number) => {
-    return (usdt / rate).toFixed(6); // Convert USD to crypto with 6 decimal precision
-  };
+  // Fetch Gold and Silver rates using GoldAPI
+useEffect(() => {
+  const fetchMetalRates = async () => {
+    try {
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setUsdtAmount(Number(e.target.value));
-  };
+      const troyOunceToGram = 31.1035;
 
+      // Fetch Gold (XAU) price
+      const goldResponse = await axios.get(
+        `https://www.goldapi.io/api/XAU/USD`,
+        {
+          headers: {
+            "x-access-token": GOLD_API_KEY,
+          },
+        }
+      );
+      const goldPricePerOunce = goldResponse.data.price; 
+      const goldPricePerGram = goldPricePerOunce / troyOunceToGram; 
+      console.log("Gold Price (per gram):", goldPricePerGram); 
+      setGoldRate(goldPricePerGram);
 
-
-
-
- 
-
-  const handleCardSelection = async (type: string) => {
-    setSelectedPayment(type);
-
-    if (type === "Card Payment") {
-      try {
-        const {
-          data: { url },
-        } = await axios.post("/api/payment", {
-          name: "Sample Product",
-          price: 1000,
-        });
-        window.location.href = url;
-      } catch (error) {
-        console.error("Error redirecting to Stripe Checkout", error);
-      }
-    } else if (type === "Crypto") {
-      setShowCryptoOptions(true);
+      // Fetch Silver (XAG) price
+      const silverResponse = await axios.get(
+        `https://www.goldapi.io/api/XAG/USD`,
+        {
+          headers: {
+            "x-access-token": GOLD_API_KEY,
+          },
+        }
+      );
+      const silverPricePerOunce = silverResponse.data.price; 
+      const silverPricePerGram = silverPricePerOunce / troyOunceToGram; 
+      console.log("Silver Price (per gram):", silverPricePerGram); 
+      setSilverRate(silverPricePerGram);
+    } catch (error) {
+      console.error("Error fetching metal data:", error);
     }
   };
 
-  const handleTokenSelection = (tokenName: string) => {
-    setSelectedToken(tokenName);
-    setSelectedCrypto(null);
-    setShowCryptoOptions(false);
+  fetchMetalRates();
+}, []);
+
+  // Calculate asset amount
+  const calculateAmount = (usdt: number, rate: number | null) => {
+    if (!rate) return "Loading...";
+    return (usdt / rate).toFixed(
+      selectedCrypto === "Gold" || selectedCrypto === "Silver" ? 2 : 18
+    );
   };
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const usdValue = Number(e.target.value);
+    setUsdtAmount(usdValue);
+
+    switch (selectedCrypto) {
+      case "Bitcoin":
+        setTokens(calculateAmount(usdValue, btcRate));
+        break;
+      case "Ethereum":
+        setTokens(calculateAmount(usdValue, ethRate));
+        break;
+      case "Polygon":
+        setTokens(calculateAmount(usdValue, maticRate));
+        break;
+      case "Gold":
+        setTokens(calculateAmount(usdValue, goldRate));
+        break;
+      case "Silver":
+        setTokens(calculateAmount(usdValue, silverRate));
+        break;
+      default:
+        setTokens("0");
+    }
+  };
+
+  const handleBuyClick = () => {
+    console.log(`Buying ${tokens} of ${selectedCrypto} for $${usdtAmount}`);
+    setUsdtAmount(0);
+    setTokens("0");
+  };
   
+ const handleCardSelection = async (type: string) => {
+  setSelectedPayment(type);
+
+  if (type === "Card Payment") {
+    try {
+      // Static Stripe Payment Link
+      const url = "https://buy.stripe.com/test_28o02tgHN55AacMbII";
+      window.open(url, "_blank"); 
+    } catch (error) {
+      console.error("Error redirecting to Stripe Checkout", error);
+    }
+  } else if (type === "Crypto") {
+    // Show crypto options or initiate crypto logic
+    setShowCryptoOptions(true); // Ensure `setShowCryptoOptions` is defined in your state.
+  }
+};
+
+  const handleTokenSelection = (tokenName: string) => {
+    setSelectedToken(tokenName);
+    // setSelectedCrypto(null);
+    setShowCryptoOptions(false);
+  };
 
   const handleCryptoSelection = (crypto: string) => {
     setSelectedCrypto(crypto);
@@ -110,7 +188,6 @@ const Payment = () => {
     }
   };
 
- 
   return (
     <DefaultLayout>
       <div className="mx-auto max-w-7xl p-8">
@@ -244,69 +321,59 @@ const Payment = () => {
           <div className="mt-12 flex flex-col items-center">
             <h1 className="mb-6 text-2xl font-semibold">Payment System</h1>
             <div className="mb-8 mt-2 flex gap-12">
-              <div
-                onClick={() => handleCardSelection("Card Payment")}
-                className={`flex-2 cursor-pointer  rounded-lg border border-gray-300 p-10 text-center shadow-sm ${
-                  selectedPayment === "Card Payment"
-                    ? "bg-white"
-                    : "bg-gray-300"
-                }`}
-              >
-                <h2 className="text-lg font-bold text-gray-800">
-                  Card Payment
-                </h2>
-                <p className="mt-2 text-sm text-gray-600">
-                  Use your credit or debit card
-                </p>
-              </div>
-              <div
-                onClick={() => handleCardSelection("Crypto")}
-                className={`flex-2 cursor-pointer rounded-lg border border-gray-300 p-8 text-center shadow-sm ${
-                  selectedPayment === "Crypto" ? "bg-white" : "bg-gray-300"
-                }`}
-              >
-                <h2 className="text-lg font-bold text-gray-800">Crypto</h2>
-                <p className="mt-2 text-sm text-gray-600">
-                  Pay using cryptocurrency
-                </p>
-              </div>
-            </div>
+  {/* Card Payment Option */}
+  <div
+    onClick={() => handleCardSelection("Card Payment")}
+    className={`flex-2 cursor-pointer rounded-lg border border-gray-300 p-10 text-center shadow-sm ${
+      selectedPayment === "Card Payment" ? "bg-white" : "bg-gray-300"
+    }`}
+  >
+    <h2 className="text-lg font-bold text-gray-800">Card Payment</h2>
+    <p className="mt-2 text-sm text-gray-600">Use your credit or debit card</p>
+  </div>
 
-            {/* Crypto Options */}
-            {showCryptoOptions && (
-              <div className="flex flex-wrap justify-center gap-20">
-                {[
-                  { name: "Ethereum", img: "/images/logo/etherum.png" },
-                  { name: "Bitcoin", img: "/images/logo/bitcoin.png" },
-                  { name: "Polygon", img: "/images/logo/polygon.png" },
-                ].map((crypto, index) => (
-                  <div
-                    key={index}
-                    onClick={() => handleCryptoSelection(crypto.name)}
-                    className={`mt-10 w-52 cursor-pointer rounded-lg border border-gray-300 p-8 text-center shadow-md ${
-                      selectedCrypto === crypto.name
-                        ? "bg-white"
-                        : "bg-gray-300"
-                    }`}
-                  >
-                    <div className="mx-auto mb-4 h-16 w-16">
-                      <img
-                        src={crypto.img}
-                        alt={`${crypto.name} Logo`}
-                        className="h-full w-full rounded-full object-cover"
-                      />
-                    </div>
-                    <div className="text-lg font-semibold text-black">
-                      {crypto.name}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+  {/* Crypto Payment Option */}
+  <div
+    onClick={() => handleCardSelection("Crypto")}
+    className={`flex-2 cursor-pointer rounded-lg border border-gray-300 p-8 text-center shadow-sm ${
+      selectedPayment === "Crypto" ? "bg-white" : "bg-gray-300"
+    }`}
+  >
+    <h2 className="text-lg font-bold text-gray-800">Crypto</h2>
+    <p className="mt-2 text-sm text-gray-600">Pay using cryptocurrency</p>
+  </div>
+</div>
+
+{/* Display Crypto Options */}
+{selectedPayment === "Crypto" && (
+  <div className="flex flex-wrap justify-center gap-20">
+    {[
+      { name: "Ethereum", img: "/images/logo/etherum.png" },
+      { name: "Bitcoin", img: "/images/logo/bitcoin.png" },
+      { name: "Polygon", img: "/images/logo/polygon.png" },
+    ].map((crypto, index) => (
+      <div
+        key={index}
+        onClick={() => handleCryptoSelection(crypto.name)}
+        className={`mt-10 w-52 cursor-pointer rounded-lg border border-gray-300 p-8 text-center shadow-md ${
+          selectedCrypto === crypto.name ? "bg-white" : "bg-gray-300"
+        }`}
+      >
+        <div className="mx-auto mb-4 h-16 w-16">
+          <img
+            src={crypto.img}
+            alt={`${crypto.name} Logo`}
+            className="h-full w-full rounded-full object-cover"
+          />
+        </div>
+        <div className="text-lg font-semibold text-black">{crypto.name}</div>
+      </div>
+    ))}
+  </div>
+)}
 
 
             {selectedCrypto === "Ethereum" && (
-                
               <div className="mt-8 flex flex-wrap justify-center gap-20">
                 <div
                   onClick={() => handleCardClick("Ethereum")}
@@ -376,9 +443,6 @@ const Payment = () => {
                   />
 
                   <button
-                    // onClick={() =>
-                    //   console.log("Proceeding with payment...", changeInPrice)
-                    // }
                     className="mt-4 rounded-lg bg-red-700 px-8 py-2 text-white transition duration-300 hover:bg-blue-500"
                   >
                     Buy Now
@@ -388,104 +452,88 @@ const Payment = () => {
             )}
 
             {/* Crypto Payment Card */}
-            {showCryptoPaymentCard && selectedCrypto && (
-              <div className="mt-12 w-full rounded-lg bg-gray-900 p-8 text-center shadow-md">
-                {/* Payment Card Header */}
-                <h2 className="text-lg font-semibold text-white">
-                  {selectedCrypto} Payment
-                </h2>
 
-                {/* Wallet Address */}
-                <div className="mt-2 text-sm text-gray-400">
-                  {selectedCrypto === "USDT" && (
-                    <p className="text-lg font-semibold text-white">
-                      Wallet Address: 0xUSDT...abcd
-                    </p>
-                  )}
-                  {selectedCrypto === "Bitcoin" && (
-                    <p className="text-lg font-semibold text-white">
-                      Wallet Address: 0xBTC...abcd
-                    </p>
-                  )}
-                  {selectedCrypto === "Polygon" && (
-                    <p className="text-lg font-semibold text-white">
-                      Wallet Address: 0xPOLY...abcd
-                    </p>
-                  )}
-                  {selectedCrypto === "Ethereum" && (
-                    <p className="text-lg font-semibold text-white">
-                      Wallet Address: 0xETH...abcd
-                    </p>
-                  )}
-                </div>
 
-                {/* Token Details */}
-                <div className="mt-4 text-white">
-                  {selectedToken === "AU (Gold)" && (
-                    <>
-                      <p>
-                        Bitcoin:
-                        {changeInPrice
-                          ? changeInPrice.toFixed(2)
-                          : "Loading..."}
-                        BTC
-                      </p>
-                      <p>Tokens You Will Receive: 100</p>
-                    </>
-                  )}
-                  {selectedToken === "AG (Silver)" && (
-                    <>
-                      <p>
-                        Bitcoin:
-                        {changeInPrice
-                          ? changeInPrice.toFixed(18)
-                          : "Loading..."}
-                        BTC
-                      </p>
-                      <p>Tokens You Will Receive: 200</p>
-                    </>
-                  )}
-                  {selectedToken === "Agua" && (
-                    <>
-                      <p>
-                        Bitcoin Price: $
-                        {bitcoinPrice ? bitcoinPrice.toFixed(2) : "Loading..."}
-                      </p>
-                      <p>Tokens You Will Receive: 50</p>
-                    </>
-                  )}
-                </div>
 
-                {/* Input for Crypto Amount */}
-                <div className="mt-4 flex flex-col items-center">
-                  <input
-                    type="number"
-                    placeholder={`Enter ${selectedCrypto} Amount`}
-                    // value={changeInPrice !== null ? changeInPrice : ""}
-                    onChange={async (e) => {
-                      console.log("change in Pirce", bitcoinPrice);
-                      const response = await axios.get(
-                        "https://api.coinlayer.com/live?access_key=374fbb63dfff515ce8c6c1001f17e1d3",
-                      );
-                      let price: number = 1 / response.data.rates.BTC;
-                      let change: number = price * Number(e.target.value);
-                      SetChangeInPrice(change);
-                      // console.log("USDT Value:", response.data.rates.BTC);
-                      console.log("change in Pirce", changeInPrice);
-                    }}
-                    // value={cryptoAmount}
-                    // onChange={(e) => setCryptoAmount(e.target.value)}
-                    className="w-64 rounded-lg border border-gray-300 bg-white px-3 py-3 text-black focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <button
-                    
-                    className="mt-4 rounded-lg bg-red-700 px-8 py-2 text-white transition duration-300 hover:bg-blue-500"
-                  >
-                    Buy Now
-                  </button>
-                </div>
-              </div>
-            )}
+            
+
+            <div className="mx-auto max-w-7xl p-8">
+     
+
+
+
+
+      {selectedCrypto && (
+        <div className="mt-12 w-180 rounded-lg bg-gray-900 p-8 text-center shadow-md">
+        <h2 className="text-lg font-semibold text-white">
+    {selectedCrypto === "Bitcoin"
+      ? "Bitcoin (BTC)"
+      : selectedCrypto === "Ethereum"
+      ? "Ethereum (ETH)"
+      : selectedCrypto === "Polygon"
+      ? "Polygon (MATIC)"
+      : selectedCrypto === "Gold"
+      ? "Gold (XAU)"
+      : selectedCrypto === "Silver"
+      ? "Silver (XAG)"
+      : "Select an Asset"}
+  </h2>
+    
+        {/* Display the Rate in USD */}
+        <div className="mt-4 text-white">
+        <p>
+      {selectedCrypto} Rate in USD:{" "}
+      {selectedCrypto === "Bitcoin"
+        ? btcRate || "Loading..."
+        : selectedCrypto === "Ethereum"
+        ? ethRate || "Loading..."
+        : selectedCrypto === "Polygon"
+        ? maticRate || "Loading..."
+        : selectedCrypto === "Gold"
+        ? goldRate || "Loading..."
+        : selectedCrypto === "Silver"
+        ? silverRate || "Loading..."
+        : "Loading..."}
+    </p>
+       </div>
+        <div className="mt-4 text-white">
+          <p>
+            {selectedCrypto} :{" "}
+            {calculateAmount(usdtAmount, selectedCrypto === "Bitcoin" ? btcRate : selectedCrypto === "Ethereum" ? ethRate : maticRate)}
+           
+          </p>
+        </div>
+    
+        {/* Display the static number of tokens */}
+        <div className="mt-4 text-white">
+          <p>Tokens You Will Receive: 200</p>
+        </div>
+    
+        {/* Input field for USD amount */}
+        <div className="mt-4 text-white">
+          <input
+            type="number"
+            value={usdtAmount === 0 ? "" : usdtAmount}
+            onChange={handleInputChange}
+            placeholder="Enter USD amount"
+            className="w-64 rounded-lg border border-gray-300 bg-white px-3 py-3 text-black focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <span className="ml-2 text-white">$</span>
+        </div>
+    
+        {/* Button to handle buy */}
+        <button
+          onClick={handleBuyClick}
+          className="mt-6 rounded-lg bg-red-700 px-8 py-2 text-white transition duration-300 hover:bg-blue-500"
+        >
+          Buy Now
+        </button>
+      </div>
+    
+      )}
+    </div>
+
+            
           </div>
         )}
       </div>
